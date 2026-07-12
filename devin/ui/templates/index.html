@@ -1,0 +1,1305 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DEVIN AI IDE - Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/loader.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: #0f0f1a;
+            color: #e0e0e0;
+            min-height: 100vh;
+        }
+        .container { max-width: 1600px; margin: 0 auto; padding: 20px; }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 0;
+            border-bottom: 2px solid #1a1a2e;
+            margin-bottom: 25px;
+        }
+        .logo { font-size: 2em; font-weight: 900; letter-spacing: -1px; }
+        .logo .devin { color: #00d9ff; }
+        .logo .ai { color: #e94560; }
+        .logo .ide { color: #888; font-weight: 400; }
+        .nav { display: flex; gap: 10px; }
+        .nav a {
+            padding: 10px 20px;
+            border-radius: 8px;
+            text-decoration: none;
+            color: #aaa;
+            background: #1a1a2e;
+            transition: all 0.3s;
+            font-weight: 500;
+        }
+        .nav a:hover, .nav a.active { background: #00d9ff; color: #0f0f1a; }
+
+        /* === Rig primario / Locale backup — status badge in header === */
+        .hw-badges { display: flex; gap: 8px; align-items: center; margin-left: 10px; }
+        .hw-badge {
+            padding: 5px 12px; border-radius: 12px; font-size: 0.75em; font-weight: bold;
+            border: 1px solid #252540; background: #1a1a2e; color: #888;
+        }
+        .hw-badge.ok { color: #2ed573; border-color: #2ed573; }
+        .hw-badge.partial { color: #ffa502; border-color: #ffa502; }
+        .hw-badge.off { color: #ff4757; border-color: #ff4757; }
+
+        /* === Self-Healing: il Critic tenta auto-correzione prima di notificare l'utente === */
+        .log-heal { color: #a29bfe; }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        .full-width { grid-column: 1 / -1; }
+
+        .card {
+            background: #1a1a2e;
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid #252540;
+        }
+        .card h2 {
+            font-size: 1.1em;
+            margin-bottom: 15px;
+            color: #00d9ff;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .status-dot {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 6px;
+        }
+        .online { background: #00d9ff; box-shadow: 0 0 8px #00d9ff; }
+        .offline { background: #ff4757; }
+
+        .model-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px;
+            background: #0f0f1a;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+        }
+        .model-item:hover { background: #252540; }
+        .model-info { display: flex; align-items: center; gap: 10px; }
+        .model-alias {
+            font-weight: bold;
+            color: #00d9ff;
+            text-transform: uppercase;
+            font-size: 0.85em;
+        }
+        .model-file {
+            color: #888;
+            font-size: 0.8em;
+            max-width: 200px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .model-badges { display: flex; gap: 6px; }
+        .badge {
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 0.7em;
+            font-weight: bold;
+        }
+        .badge-online { background: rgba(0,217,255,0.15); color: #00d9ff; }
+        .badge-offline { background: rgba(255,71,87,0.15); color: #ff4757; }
+        .badge-vision { background: rgba(162,155,254,0.15); color: #a29bfe; }
+        .badge-fallback { background: rgba(255,165,2,0.15); color: #ffa502; }
+
+        .tooltip {
+            display: none;
+            position: absolute;
+            background: #252540;
+            border: 1px solid #00d9ff;
+            border-radius: 8px;
+            padding: 15px;
+            z-index: 100;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            min-width: 280px;
+            top: 100%;
+            left: 0;
+            margin-top: 5px;
+        }
+        .model-item:hover .tooltip { display: block; }
+        .tooltip-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 0;
+            font-size: 0.85em;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .vram-bar {
+            height: 10px;
+            background: #0f0f1a;
+            border-radius: 5px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        .vram-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #00d9ff, #e94560);
+            border-radius: 5px;
+            transition: width 0.5s;
+        }
+
+        .ide-panel {
+            background: #1a1a2e;
+            border-radius: 12px;
+            border: 2px solid #00d9ff;
+            overflow: hidden;
+        }
+        .ide-header {
+            background: #00d9ff;
+            color: #0f0f1a;
+            padding: 15px 20px;
+            font-weight: bold;
+            font-size: 1.1em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .ide-body { padding: 20px; }
+        .form-row {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 15px;
+            align-items: center;
+        }
+        .form-label {
+            min-width: 120px;
+            color: #888;
+            font-size: 0.9em;
+            font-weight: 500;
+        }
+        .form-input {
+            flex: 1;
+            padding: 10px 15px;
+            background: #0f0f1a;
+            border: 1px solid #252540;
+            border-radius: 8px;
+            color: #fff;
+            font-size: 0.95em;
+            font-family: inherit;
+        }
+        .form-input:focus { outline: none; border-color: #00d9ff; }
+        textarea.form-input {
+            min-height: 80px;
+            resize: vertical;
+            font-family: 'Fira Code', 'Consolas', monospace;
+        }
+        .form-select {
+            padding: 10px;
+            background: #0f0f1a;
+            border: 1px solid #252540;
+            border-radius: 8px;
+            color: #fff;
+            font-size: 0.95em;
+            min-width: 200px;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.95em;
+            font-weight: bold;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .btn-primary { background: #00d9ff; color: #0f0f1a; }
+        .btn-primary:hover { background: #33e5ff; }
+        .btn-danger { background: #e94560; color: white; }
+        .btn-danger:hover { background: #ff6b81; }
+        .btn-success { background: #2ed573; color: #0f0f1a; }
+        .btn-ghost { background: #252540; color: #aaa; }
+        .btn-ghost:hover { background: #00d9ff; color: #0f0f1a; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-group { display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap; }
+
+        .run-status {
+            background: #0f0f1a;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 15px;
+        }
+        .run-status.hidden { display: none; }
+        .run-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .run-title { font-weight: bold; color: #00d9ff; }
+        .run-badge {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            font-weight: bold;
+        }
+        .run-running { background: rgba(0,217,255,0.15); color: #00d9ff; }
+        .run-success { background: rgba(46,213,115,0.15); color: #2ed573; }
+        .run-failed { background: rgba(255,71,87,0.15); color: #ff4757; }
+        .run-timeout { background: rgba(255,165,2,0.15); color: #ffa502; }
+        .run-stopped { background: rgba(136,136,136,0.15); color: #888; }
+
+        .log-console {
+            background: #0a0a14;
+            border-radius: 8px;
+            padding: 15px;
+            font-family: 'Fira Code', 'Consolas', monospace;
+            font-size: 0.85em;
+            max-height: 300px;
+            overflow-y: auto;
+            color: #aaa;
+            border: 1px solid #252540;
+        }
+        .log-line { padding: 2px 0; white-space: pre-wrap; word-break: break-word; }
+        .log-info { color: #00d9ff; }
+        .log-success { color: #2ed573; }
+        .log-error { color: #e94560; }
+        .log-warning { color: #ffa502; }
+        .log-time { color: #666; font-size: 0.9em; margin-right: 8px; }
+
+        .explorer-grid {
+            display: grid;
+            grid-template-columns: 280px 1fr;
+            gap: 0;
+            height: 600px;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid #252540;
+        }
+        .explorer-sidebar {
+            background: #0f0f1a;
+            padding: 10px;
+            overflow-y: auto;
+            border-right: 1px solid #252540;
+        }
+        .explorer-content {
+            background: #0a0a14;
+            overflow: hidden;
+            position: relative;
+        }
+        .file-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85em;
+            transition: all 0.2s;
+        }
+        .file-item:hover { background: #252540; }
+        .file-item.active { background: #00d9ff; color: #0f0f1a; }
+        .file-item.active .file-size { color: #0f0f1a; opacity: 0.7; }
+        .file-icon { font-size: 1.1em; width: 20px; text-align: center; }
+        .file-name { flex: 1; overflow: hidden; text-overflow: ellipsis; }
+        .file-size { color: #666; font-size: 0.8em; }
+        .file-path-bar {
+            background: #1a1a2e;
+            padding: 10px 15px;
+            border-bottom: 1px solid #252540;
+            font-size: 0.9em;
+            color: #888;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            justify-content: space-between;
+        }
+        .file-actions { display: flex; gap: 8px; }
+        .file-actions button {
+            padding: 4px 12px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.8em;
+            background: #252540;
+            color: #aaa;
+            transition: all 0.2s;
+        }
+        .file-actions button:hover { background: #00d9ff; color: #0f0f1a; }
+
+        #monaco-editor { width: 100%; height: calc(100% - 45px); }
+
+        .autocomplete-status {
+            position: absolute;
+            bottom: 8px;
+            right: 20px;
+            z-index: 10;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.75em;
+            font-family: 'Fira Code', monospace;
+            pointer-events: none;
+            transition: all 0.3s;
+        }
+        .autocomplete-status.idle { background: rgba(0,0,0,0.5); color: #666; }
+        .autocomplete-status.loading { background: rgba(0,217,255,0.2); color: #00d9ff; animation: pulse 1s infinite; }
+        .autocomplete-status.ready { background: rgba(46,213,115,0.2); color: #2ed573; }
+        .autocomplete-status.error { background: rgba(255,71,87,0.2); color: #ff4757; }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .run-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px;
+            background: #0f0f1a;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            transition: all 0.2s;
+        }
+        .run-item:hover { background: #252540; }
+        .run-info { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+        .run-id { font-family: 'Fira Code', monospace; color: #00d9ff; font-size: 0.9em; }
+        .run-time { color: #666; font-size: 0.85em; }
+        .run-actions { display: flex; gap: 8px; }
+        .run-actions button {
+            padding: 6px 12px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.8em;
+            background: #252540;
+            color: #aaa;
+            transition: all 0.2s;
+        }
+        .run-actions button:hover { background: #00d9ff; color: #0f0f1a; }
+
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #0f0f1a; }
+        ::-webkit-scrollbar-thumb { background: #252540; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #00d9ff; }
+
+        @media (max-width: 900px) {
+            .main-grid { grid-template-columns: 1fr; }
+            .explorer-grid { grid-template-columns: 1fr; height: auto; }
+            .explorer-sidebar { max-height: 200px; border-right: none; border-bottom: 1px solid #252540; }
+            .form-row { flex-direction: column; align-items: flex-start; }
+            .form-label { min-width: auto; margin-bottom: 5px; }
+        }
+
+        /* === Unificazione tema con la chat (GitHub-dark) — 2026-07-11 ===
+           Blocco appeso in coda: ri-skinna gli elementi chiave sulle stesse
+           variabili di chat.html senza toccare le 400 righe sopra. */
+        :root {
+            --bg: #0d1117; --panel: #161b22; --border: #30363d;
+            --text: #c9d1d9; --dim: #8b949e; --accent: #58a6ff;
+            --ok: #3fb950; --warn: #d29922; --err: #f85149;
+        }
+        body { background: var(--bg); color: var(--text); }
+        header { border-bottom: 1px solid var(--border); }
+        .logo .devin { color: var(--accent); }
+        .logo .ai { color: var(--err); }
+        .logo .ide { color: var(--dim); }
+        .nav a { background: var(--panel); color: var(--dim); border: 1px solid var(--border); }
+        .nav a:hover, .nav a.active { background: var(--panel); color: var(--accent); border-color: var(--accent); }
+        .hw-badge { background: var(--panel); border-color: var(--border); color: var(--dim); }
+        .hw-badge.ok { color: var(--ok); border-color: var(--ok); }
+        .hw-badge.partial { color: var(--warn); border-color: var(--warn); }
+        .hw-badge.off { color: var(--err); border-color: var(--err); }
+        .log-heal { color: #a5a2ff; }
+        .card { background: var(--panel); border: 1px solid var(--border); }
+        .card h2 { color: var(--text); }
+        .model-item { background: var(--bg); }
+        .model-item:hover { background: #1f2630; }
+        .model-alias { color: var(--accent); }
+        .model-file { color: var(--dim); }
+        .online { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+        .offline { background: var(--err); }
+        .badge-online { background: rgba(88,166,255,0.15); color: var(--accent); }
+        .badge-offline { background: rgba(248,81,73,0.15); color: var(--err); }
+        .badge-vision { background: rgba(165,162,255,0.15); color: #a5a2ff; }
+        .badge-fallback { background: rgba(210,153,34,0.15); color: var(--warn); }
+        .tooltip { background: var(--panel); border: 1px solid var(--border); }
+        .vram-bar { background: var(--bg); }
+        .vram-fill { background: linear-gradient(90deg, var(--accent), #388bfd); }
+        .ide-panel { border: 1px solid var(--border); background: var(--panel); }
+        .ide-header { background: var(--panel); color: var(--accent); border-bottom: 1px solid var(--border); }
+        .form-input, .form-select { background: var(--bg); border: 1px solid var(--border); color: var(--text); }
+        .form-input:focus, .form-select:focus { border-color: var(--accent); }
+        .form-label { color: var(--dim); }
+        .btn-primary { background: var(--accent); color: #04101f; }
+        .btn-primary:hover { background: #6cb2ff; }
+        .btn-danger { background: var(--err); }
+        .btn-success { background: var(--ok); color: #04101f; }
+        .btn-ghost { background: var(--panel); color: var(--dim); border: 1px solid var(--border); }
+        .btn-ghost:hover { background: var(--panel); color: var(--accent); border-color: var(--accent); }
+        .run-status { background: var(--bg); }
+        .run-title { color: var(--accent); }
+        .run-running { background: rgba(88,166,255,0.15); color: var(--accent); }
+        .run-success { background: rgba(63,185,80,0.15); color: var(--ok); }
+        .run-failed { background: rgba(248,81,73,0.15); color: var(--err); }
+        .run-timeout { background: rgba(210,153,34,0.15); color: var(--warn); }
+        .run-stopped { background: rgba(139,148,158,0.15); color: var(--dim); }
+        .log-console { background: #0d1117; border: 1px solid var(--border); color: var(--dim); }
+        .log-info { color: var(--accent); }
+        .log-success { color: var(--ok); }
+        .log-error { color: var(--err); }
+        .log-warning { color: var(--warn); }
+        .explorer-grid { border: 1px solid var(--border); }
+        .explorer-sidebar { background: var(--bg); border-right: 1px solid var(--border); }
+        .explorer-content { background: #0d1117; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="logo">
+                <span class="devin">DEVIN</span><span class="ai">AI</span><span class="ide">IDE</span>
+            </div>
+            <nav class="nav">
+                <a href="/" class="active">🏠 Dashboard</a>
+                <a href="/chat">💬 Chat</a>
+                <a href="/history">📜 History</a>
+            </nav>
+            <div class="hw-badges">
+                <span class="hw-badge" id="rig-badge">Rig: ...</span>
+                <span class="hw-badge" id="local-badge">Locale: ...</span>
+            </div>
+        </header>
+
+        <div class="main-grid">
+            <div class="card">
+                <h2>🤖 Modelli Attivi</h2>
+                {% if models_running %}
+                    {% for model in models_info %}
+                    <div class="model-item">
+                        <div class="model-info">
+                            <span class="status-dot {% if model.online %}online{% else %}offline{% endif %}"></span>
+                            <div>
+                                <div class="model-alias">{{ model.alias }}</div>
+                                <div class="model-file" title="{{ model.active_file or model.file }}">
+                                    {{ model.active_file or model.file }}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="model-badges">
+                            {% if model.vision_enabled %}<span class="badge badge-vision">👁 Vision</span>{% endif %}
+                            {% if model.is_fallback_active %}<span class="badge badge-fallback">⚠ Fallback</span>{% endif %}
+                            <span class="badge {% if model.online %}badge-online{% else %}badge-offline{% endif %}">
+                                {{ 'Online' if model.online else 'Offline' }}
+                            </span>
+                        </div>
+                        <div class="tooltip">
+                            <div class="tooltip-row"><span>Modello</span><span>{{ model.description or model.file }}</span></div>
+                            <div class="tooltip-row"><span>File</span><span style="word-break:break-all">{{ model.active_file or model.file }}</span></div>
+                            <div class="tooltip-row"><span>Porta</span><span>localhost:{{ model.port }}</span></div>
+                            <div class="tooltip-row"><span>Context</span><span>{{ model.ctx_size }} tokens</span></div>
+                            <div class="tooltip-row"><span>Status</span><span>{{ '🟢 Pronto' if model.online else '🔴 Offline' }}</span></div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p style="color: #666; text-align: center; padding: 20px;">Nessun modello in esecuzione</p>
+                {% endif %}
+            </div>
+
+            <div class="card">
+                <h2>🎮 VRAM GPU</h2>
+                {% if vram %}
+                    <div style="margin-bottom: 10px;"><strong>{{ vram.gpu_name }}</strong></div>
+                    <div style="display: flex; justify-content: space-between; font-size: 0.9em; margin-bottom: 5px;">
+                        <span>{{ vram.used_mb }} MB usati</span>
+                        <span>{{ vram.total_mb }} MB totali</span>
+                    </div>
+                    <div class="vram-bar">
+                        <div class="vram-fill" style="width: {{ (vram.used_mb / vram.total_mb * 100) | int }}%"></div>
+                    </div>
+                    <div style="font-size: 0.85em; color: #666; margin-top: 5px;">
+                        {{ vram.free_mb }} MB liberi ({{ (vram.free_mb / vram.total_mb * 100) | int }}%)
+                    </div>
+                {% else %}
+                    <p style="color: #666; text-align: center; padding: 20px;">nvidia-smi non disponibile</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="ide-panel full-width" style="margin-bottom: 20px;">
+            <div class="ide-header">🚀 Pannello Controllo DEVIN</div>
+            <div class="ide-body">
+                <div class="form-row">
+                    <label class="form-label">📁 Progetto</label>
+                    <select class="form-select" id="project-select" onchange="onProjectChange()">
+                        <option value="">-- Seleziona progetto --</option>
+                        {% for project in projects %}
+                        <option value="{{ project.path }}">{{ project.name }} {% if project.has_python %}(Python){% endif %}</option>
+                        {% endfor %}
+                    </select>
+                    <input type="text" class="form-input" id="custom-path" placeholder="Oppure inserisci path..." style="flex: 0.5;">
+                </div>
+                <div class="form-row">
+                    <label class="form-label">🎯 Task</label>
+                    <textarea class="form-input" id="task-input" placeholder="Descrivi cosa vuoi che DEVIN faccia...&#10;Es: 'Trova e correggi il bug in calc.py'">trova e correggi eventuali bug</textarea>
+                </div>
+                <div class="form-row">
+                    <label class="form-label">🏗️ Modalità</label>
+                    <label style="display:flex; align-items:center; gap:8px; color:#aaa; font-size:0.9em; cursor:pointer;">
+                        <input type="checkbox" id="scaffold-mode" style="width:16px; height:16px;">
+                        Zero-Shot Scaffolding (progetto nuovo/vuoto, crea file da zero invece di patchare)
+                    </label>
+                </div>
+                <div class="form-row">
+                    <label class="form-label">⚙️ Opzioni</label>
+                    <div style="display: flex; gap: 15px; flex: 1; flex-wrap: wrap;">
+                        <div><label style="color: #666; font-size: 0.85em; display: block; margin-bottom: 4px;">Entrypoint</label>
+                            <input type="text" class="form-input" id="entrypoint" placeholder="main.py" style="width: 150px;"></div>
+                        <div><label style="color: #666; font-size: 0.85em; display: block; margin-bottom: 4px;">Max Retry</label>
+                            <input type="number" class="form-input" id="max-attempts" value="3" min="1" max="5" style="width: 80px;"></div>
+                        <div><label style="color: #666; font-size: 0.85em; display: block; margin-bottom: 4px;">Timeout (s)</label>
+                            <input type="number" class="form-input" id="max-seconds" value="300" min="60" max="1800" style="width: 100px;"></div>
+                    </div>
+                </div>
+                <div class="btn-group">
+                    <button class="btn btn-primary" id="btn-run" onclick="startRun()">🚀 Avvia DEVIN</button>
+                    <button class="btn btn-danger" id="btn-stop" onclick="stopRun()" disabled>🛑 Stop</button>
+                    <button class="btn btn-ghost" onclick="refreshStatus()">🔄 Refresh</button>
+                </div>
+                <div class="run-status hidden" id="run-panel">
+                    <div class="run-header">
+                        <span class="run-title" id="run-title">Run in corso...</span>
+                        <span class="run-badge run-running" id="run-badge">⏳ In esecuzione</span>
+                    </div>
+                    <div class="log-console" id="log-console"><div class="log-line log-info">In attesa di log...</div></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card full-width" style="margin-bottom: 20px;">
+            <h2>📁 File Explorer <span style="color: #666; font-size: 0.8em; font-weight: normal;">— Monaco Editor con AI Autocomplete (Tab per accettare)</span></h2>
+            <div class="form-row" style="margin-bottom: 15px;">
+                <input type="text" class="form-input" id="explorer-path" placeholder="Path progetto..." readonly>
+                <button class="btn btn-ghost" onclick="loadExplorer()">📂 Carica</button>
+            </div>
+            <div class="explorer-grid" id="explorer-grid" style="display: none;">
+                <div class="explorer-sidebar" id="explorer-sidebar">
+                    <div style="color: #666; text-align: center; padding: 20px;">Seleziona un progetto</div>
+                </div>
+                <div class="explorer-content" id="explorer-content">
+                    <div class="file-path-bar" id="file-path-bar">
+                        <span>📄 Seleziona un file per editarlo</span>
+                        <div class="file-actions">
+                            <button onclick="forceAutocomplete()">✨ AI Complete</button>
+                            <button onclick="testAIConnection()">🧪 Test</button>
+                            <button onclick="saveCurrentFile()">💾 Salva</button>
+                        </div>
+                    </div>
+                    <div id="monaco-editor"></div>
+                    <div class="autocomplete-status idle" id="autocomplete-status">Ready</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card full-width">
+            <h2>📜 Ultimi Run</h2>
+            <div id="recent-runs-container">
+                {% if recent_runs %}
+                    {% for run in recent_runs %}
+                    <div class="run-item">
+                        <div class="run-info">
+                            <span class="run-id">{{ run.run_id }}</span>
+                            <span class="run-badge {% if run.status == 'success' %}run-success{% elif run.status == 'failed' %}run-failed{% elif run.status == 'timeout' %}run-timeout{% elif run.status == 'stopped' %}run-stopped{% else %}run-running{% endif %}">
+                                {% if run.status == 'success' %}✅{% elif run.status == 'failed' %}❌{% elif run.status == 'timeout' %}⏱️{% elif run.status == 'stopped' %}🛑{% else %}⏳{% endif %}
+                                {{ run.status }}
+                            </span>
+                            <span class="run-time">{{ run.mtime }}</span>
+                        </div>
+                        <div class="run-actions">
+                            <button onclick="viewLog('{{ run.run_id }}')">👁 View</button>
+                            <button onclick="downloadLog('{{ run.run_id }}')">📥 Log</button>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p style="color: #666; text-align: center; padding: 20px;">Nessun run ancora eseguito</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ===== DEBUG =====
+        const DEBUG = true;
+        function log(tag, msg, data) {
+            if (!DEBUG) return;
+            const line = `[DEVIN][${tag}] ${msg}`;
+            if (data !== undefined) console.log(line, data);
+            else console.log(line);
+        }
+
+        // ===== STATE =====
+        let currentRunId = null, eventSource = null, currentProjectPath = '';
+        let monacoEditor = null, monacoReady = false, currentFilePath = '';
+        let isFetchingCompletion = false;
+        let ghostDecorations = [];
+        let pendingSuggestion = '';
+        let autocompleteTimer = null;
+
+        // ===== INIT MONACO =====
+        function initMonaco() {
+            log('MONACO', 'Initializing...');
+            require.config({ paths: { 'vs': 'https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs' }});
+            require(['vs/editor/editor.main'], function() {
+                log('MONACO', 'Loaded');
+
+                monaco.editor.defineTheme('devin-dark', {
+                    base: 'vs-dark',
+                    inherit: true,
+                    rules: [
+                        { token: 'comment', foreground: '6272A4', fontStyle: 'italic' },
+                        { token: 'keyword', foreground: 'FF79C6' },
+                        { token: 'identifier', foreground: 'F8F8F2' },
+                        { token: 'string', foreground: 'F1FA8C' },
+                        { token: 'number', foreground: 'BD93F9' },
+                    ],
+                    colors: {
+                        'editor.background': '#0a0a14',
+                        'editor.foreground': '#e0e0e0',
+                        'editor.lineHighlightBackground': '#1a1a2e',
+                        'editor.selectionBackground': '#44475a',
+                        'editorCursor.foreground': '#00d9ff',
+                        'editorLineNumber.foreground': '#6272a4',
+                        'editorLineNumber.activeForeground': '#00d9ff',
+                        'editorGutter.background': '#0a0a14',
+                        'editorInlineSuggestion.foreground': '#6272a4',
+                    }
+                });
+
+                // CRITICAL: inlineSuggest.enabled MUST be true for inline completions to work!
+                monacoEditor = monaco.editor.create(document.getElementById('monaco-editor'), {
+                    value: '# Seleziona un file per iniziare\n# Clicca ✨ AI Complete o premi Ctrl+Space',
+                    language: 'python',
+                    theme: 'devin-dark',
+                    fontSize: 14,
+                    fontFamily: 'Fira Code, Consolas, monospace',
+                    minimap: { enabled: true },
+                    scrollBeyondLastLine: false,
+                    automaticLayout: true,
+                    tabSize: 4,
+                    insertSpaces: true,
+                    wordWrap: 'on',
+                    lineNumbers: 'on',
+                    renderWhitespace: 'selection',
+                    bracketPairColorization: { enabled: true },
+                    guides: { bracketPairs: true, indentation: true },
+                    quickSuggestions: false,
+                    parameterHints: { enabled: true },
+                    hover: { enabled: true },
+                    folding: true,
+                    contextmenu: true,
+                    // CRITICAL: this enables inline suggestions (ghost text)
+                    inlineSuggest: {
+                        enabled: true,
+                        showToolbar: 'onHover',
+                        mode: 'subword',
+                        suppressSuggestions: false,
+                    },
+                });
+
+                monacoReady = true;
+                log('MONACO', 'Ready');
+
+                setupAutocomplete();
+                registerInlineProvider();
+            });
+        }
+
+        // ===== REGISTER INLINE COMPLETIONS PROVIDER =====
+        function registerInlineProvider() {
+            try {
+                if (!monaco.languages.registerInlineCompletionsProvider) {
+                    log('INLINE', 'API not available');
+                    return;
+                }
+                log('INLINE', 'Registering provider');
+
+                monaco.languages.registerInlineCompletionsProvider('*', {
+                    provideInlineCompletions: async function(model, position, context, token) {
+                        log('INLINE', 'Called', { line: position.lineNumber, col: position.column, trigger: context.triggerKind });
+
+                        if (!currentFilePath) {
+                            log('INLINE', 'No file open');
+                            return { items: [] };
+                        }
+
+                        // Only respond to explicit triggers (Ctrl+Space) or auto after typing
+                        const isExplicit = context.triggerKind === 1; // Explicit = 1
+                        if (!isExplicit) {
+                            log('INLINE', 'Not explicit, skipping');
+                            return { items: [] };
+                        }
+
+                        try {
+                            const suggestion = await fetchAICompletionInternal();
+                            if (suggestion) {
+                                log('INLINE', 'Returning suggestion', suggestion.substring(0, 50));
+                                return {
+                                    items: [{
+                                        insertText: suggestion,
+                                        range: {
+                                            startLineNumber: position.lineNumber,
+                                            startColumn: position.column,
+                                            endLineNumber: position.lineNumber,
+                                            endColumn: position.column
+                                        }
+                                    }]
+                                };
+                            }
+                        } catch (e) {
+                            log('INLINE', 'Error', e);
+                        }
+                        return { items: [] };
+                    },
+                    freeInlineCompletions: function() {}
+                });
+
+                log('INLINE', 'Provider registered');
+            } catch (e) {
+                log('INLINE', 'Registration failed', e);
+            }
+        }
+
+        // ===== MANUAL AUTOCOMPLETE (reliable fallback) =====
+        function setupAutocomplete() {
+            if (!monacoEditor) return;
+            log('AUTO', 'Setting up manual triggers');
+
+            // Ctrl+Space → force autocomplete
+            monacoEditor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Space, function() {
+                log('AUTO', 'Ctrl+Space pressed');
+                forceAutocomplete();
+            });
+
+            // Auto-trigger on typing
+            monacoEditor.onDidChangeModelContent(function(e) {
+                if (pendingSuggestion) {
+                    clearGhostText();
+                    pendingSuggestion = '';
+                }
+                if (autocompleteTimer) clearTimeout(autocompleteTimer);
+                if (!currentFilePath || isFetchingCompletion) return;
+
+                const lastChange = e.changes[e.changes.length - 1];
+                const text = lastChange.text;
+                const isTrigger = /[.(:=,\[\{\s\n]$/.test(text);
+
+                if (isTrigger) {
+                    log('AUTO', 'Trigger char, scheduling');
+                    autocompleteTimer = setTimeout(() => forceAutocomplete(), 400);
+                }
+            });
+
+            // Tab → accept ghost text
+            monacoEditor.addCommand(monaco.KeyCode.Tab, function() {
+                if (pendingSuggestion) {
+                    log('AUTO', 'Tab → accepting');
+                    acceptGhostText();
+                } else {
+                    monacoEditor.trigger('keyboard', 'type', { text: '\t' });
+                }
+            });
+
+            // Escape → dismiss
+            monacoEditor.addCommand(monaco.KeyCode.Escape, function() {
+                if (pendingSuggestion) {
+                    log('AUTO', 'Esc → dismissing');
+                    clearGhostText();
+                    pendingSuggestion = '';
+                    updateStatus('idle', 'Ready');
+                }
+            });
+        }
+
+        // ===== FORCE AUTOCOMPLETE (manual) =====
+        async function forceAutocomplete() {
+            log('AUTO', 'forceAutocomplete called');
+            if (!monacoEditor || !currentFilePath) { log('AUTO', 'Not ready'); return; }
+            if (isFetchingCompletion) { log('AUTO', 'Already fetching'); return; }
+
+            isFetchingCompletion = true;
+            updateStatus('loading', 'AI thinking...');
+            clearGhostText();
+
+            try {
+                const suggestion = await fetchAICompletionInternal();
+                if (suggestion && suggestion.trim()) {
+                    log('AUTO', 'Got suggestion', suggestion.substring(0, 80));
+                    pendingSuggestion = suggestion;
+                    showGhostText(suggestion);
+                    updateStatus('ready', 'Tab to accept, Esc to dismiss');
+                } else {
+                    log('AUTO', 'Empty suggestion');
+                    updateStatus('idle', 'No suggestion');
+                }
+            } catch (e) {
+                log('AUTO', 'Error', e);
+                updateStatus('error', 'Error: ' + e.message);
+            } finally {
+                isFetchingCompletion = false;
+            }
+        }
+
+        // ===== FETCH FROM BACKEND =====
+        async function fetchAICompletionInternal() {
+            const model = monacoEditor.getModel();
+            const fullCode = model.getValue();
+            const position = monacoEditor.getPosition();
+            const cursorOffset = model.getOffsetAt(position);
+            const language = getLanguageFromPath(currentFilePath);
+
+            log('FETCH', 'Requesting', { lang: language, cursor: cursorOffset });
+
+            const response = await fetch('/api/autocomplete/stream', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    code: fullCode,
+                    language: language,
+                    cursor_position: cursorOffset
+                })
+            });
+
+            if (!response.ok) throw new Error('HTTP ' + response.status);
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+            let suggestion = '';
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop();
+                for (const line of lines) {
+                    if (line.startsWith('data: ')) {
+                        try {
+                            const data = JSON.parse(line.slice(6));
+                            if (data.token) suggestion += data.token;
+                        } catch (e) {}
+                    }
+                }
+            }
+
+            suggestion = suggestion
+                .replace(/^```[a-z]*\n?/, '')
+                .replace(/\n?```$/, '')
+                .replace(/^\s+/, '');
+
+            log('FETCH', 'Complete', suggestion.substring(0, 100));
+            return suggestion;
+        }
+
+        // ===== GHOST TEXT (deltaDecorations - v0.45 compatible) =====
+        function showGhostText(text) {
+            log('GHOST', 'Showing', text.substring(0, 50));
+            clearGhostText();
+            if (!monacoEditor) return;
+
+            const position = monacoEditor.getPosition();
+            const decoration = {
+                range: new monaco.Range(position.lineNumber, position.column, position.lineNumber, position.column),
+                options: {
+                    after: { content: text, inlineClassName: 'myInlineDecoration' },
+                    description: 'AI Ghost'
+                }
+            };
+
+            // Use deltaDecorations (works in all Monaco versions)
+            ghostDecorations = monacoEditor.deltaDecorations([], [decoration]);
+            log('GHOST', 'Decorations set', ghostDecorations);
+        }
+
+        function clearGhostText() {
+            if (ghostDecorations.length > 0 && monacoEditor) {
+                monacoEditor.deltaDecorations(ghostDecorations, []);
+                ghostDecorations = [];
+            }
+        }
+
+        function acceptGhostText() {
+            if (!pendingSuggestion || !monacoEditor) return;
+            log('GHOST', 'Accepting');
+
+            const position = monacoEditor.getPosition();
+            monacoEditor.executeEdits('ai-autocomplete', [{
+                range: new monaco.Range(position.lineNumber, position.column, position.lineNumber, position.column),
+                text: pendingSuggestion,
+                forceMoveMarkers: true
+            }]);
+
+            clearGhostText();
+            pendingSuggestion = '';
+            updateStatus('idle', 'Ready');
+        }
+
+        // ===== TEST AI CONNECTION =====
+        async function testAIConnection() {
+            log('TEST', 'Testing...');
+            updateStatus('loading', 'Testing AI...');
+            try {
+                const response = await fetch('/api/autocomplete/stream', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ code: 'def hello():\n    ', language: 'python', cursor_position: 15 })
+                });
+                if (!response.ok) throw new Error('HTTP ' + response.status);
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let text = '';
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    text += decoder.decode(value, { stream: true });
+                }
+                log('TEST', 'Response', text.substring(0, 200));
+                alert('✅ AI Backend OK!\nReceived ' + text.length + ' chars\nCheck console (F12) for details');
+                updateStatus('idle', 'Ready');
+            } catch (e) {
+                log('TEST', 'Error', e);
+                alert('❌ AI Backend Error:\n' + e.message + '\n\nCheck console (F12)');
+                updateStatus('error', 'Backend error');
+            }
+        }
+
+        // ===== UTILITIES =====
+        function updateStatus(state, text) {
+            const el = document.getElementById('autocomplete-status');
+            if (el) { el.className = 'autocomplete-status ' + state; el.textContent = text; }
+            log('STATUS', text);
+        }
+
+        function getLanguageFromPath(path) {
+            const ext = path.split('.').pop().toLowerCase();
+            const map = {
+                'py': 'python', 'js': 'javascript', 'ts': 'typescript',
+                'html': 'html', 'css': 'css', 'json': 'json',
+                'yaml': 'yaml', 'yml': 'yaml', 'md': 'markdown',
+                'sh': 'shell', 'sql': 'sql', 'cpp': 'cpp',
+                'c': 'c', 'h': 'c', 'java': 'java',
+                'go': 'go', 'rs': 'rust', 'php': 'php', 'rb': 'ruby',
+            };
+            return map[ext] || 'plaintext';
+        }
+
+        // ===== PROJECT =====
+        function onProjectChange() {
+            const select = document.getElementById('project-select');
+            if (select.value) {
+                document.getElementById('custom-path').value = '';
+                document.getElementById('explorer-path').value = select.value;
+                currentProjectPath = select.value;
+                loadExplorer();
+            }
+        }
+
+        // ===== FILE EXPLORER =====
+        async function loadExplorer() {
+            const path = document.getElementById('explorer-path').value || currentProjectPath;
+            if (!path) { alert('Seleziona un progetto'); return; }
+            document.getElementById('explorer-grid').style.display = 'grid';
+            if (!monacoReady) initMonaco();
+
+            try {
+                const res = await fetch(`/api/explore?path=${encodeURIComponent(path)}`);
+                const data = await res.json();
+                if (data.error) {
+                    document.getElementById('explorer-sidebar').innerHTML = `<div style="color: #e94560; padding: 20px;">${data.error}</div>`;
+                    return;
+                }
+                let html = '';
+                if (data.files && data.files.length > 0) {
+                    data.files.forEach(file => {
+                        const icon = file.is_python ? '🐍' : file.is_text ? '📄' : '📦';
+                        const size = file.size < 1024 ? `${file.size}B` : file.size < 1024*1024 ? `${(file.size/1024).toFixed(1)}KB` : `${(file.size/1024/1024).toFixed(1)}MB`;
+                        html += `<div class="file-item" data-full="${escapeHtml(file.full_path)}" data-rel="${escapeHtml(file.path)}"><span class="file-icon">${icon}</span><span class="file-name" title="${escapeHtml(file.path)}">${escapeHtml(file.name)}</span><span class="file-size">${size}</span></div>`;
+                    });
+                } else { html = '<div style="color: #666; text-align: center; padding: 20px;">Nessun file</div>'; }
+                const sidebar = document.getElementById('explorer-sidebar');
+                sidebar.innerHTML = html;
+                // #17: niente più path interpolati in onclick (injection se il nome
+                // contiene apici/caratteri speciali). Path nei data-attribute, click
+                // via addEventListener — la stringa non viene mai valutata come JS.
+                sidebar.querySelectorAll('.file-item').forEach(el => {
+                    el.addEventListener('click', () => loadFile(el.dataset.full, el.dataset.rel, el));
+                });
+            } catch (e) { console.error('Explorer error:', e); }
+        }
+
+        async function loadFile(filePath, relPath, element) {
+            document.querySelectorAll('.file-item').forEach(el => el.classList.remove('active'));
+            element.classList.add('active');
+            try {
+                const res = await fetch(`/api/file?path=${encodeURIComponent(filePath)}`);
+                const data = await res.json();
+                if (data.error) return;
+                currentFilePath = filePath;
+                document.getElementById('file-path-bar').innerHTML = `<span>📄 ${escapeHtml(relPath)}</span><div class="file-actions"><button onclick="forceAutocomplete()">✨ AI Complete</button><button onclick="testAIConnection()">🧪 Test</button><button onclick="saveCurrentFile()">💾 Salva</button></div>`;
+                if (monacoEditor) {
+                    const lang = getLanguageFromPath(filePath);
+                    const oldModel = monacoEditor.getModel();
+                    const newModel = monaco.editor.createModel(data.content, lang);
+                    monacoEditor.setModel(newModel);
+                    if (oldModel) oldModel.dispose();
+                    monacoEditor.focus();
+                    log('FILE', 'Loaded', { path: relPath, lang: lang });
+                }
+            } catch (e) { console.error('File load error:', e); }
+        }
+
+        async function saveCurrentFile() {
+            if (!monacoEditor || !currentFilePath) return;
+            const content = monacoEditor.getValue();
+            try {
+                const res = await fetch('/api/file/save', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ path: currentFilePath, content })
+                });
+                const data = await res.json();
+                if (data.error) { alert('❌ ' + data.error); return; }
+                log('FILE', 'Salvato ✓', { path: data.path, bytes: data.bytes });
+                // conferma visiva veloce sul bottone, senza alert bloccante
+                const bar = document.getElementById('file-path-bar');
+                const btn = bar && bar.querySelector('button[onclick="saveCurrentFile()"]');
+                if (btn) { const t = btn.textContent; btn.textContent = '✓ Salvato'; setTimeout(() => { btn.textContent = t; }, 1200); }
+            } catch (e) { alert('❌ Errore salvataggio: ' + e); }
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // ===== RUN CONTROL (unchanged) =====
+        async function startRun() {
+            const projectPath = document.getElementById('custom-path').value || document.getElementById('project-select').value;
+            if (!projectPath) { alert('Seleziona un progetto!'); return; }
+
+            // Modalità 2: Zero-Shot Scaffolding — stesso form, endpoint diverso, stesso log-console/EventSource
+            const isScaffold = document.getElementById('scaffold-mode').checked;
+            const endpoint = isScaffold ? '/api/chat/scaffold' : '/api/run';
+
+            try {
+                const res = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        path: projectPath,
+                        task: document.getElementById('task-input').value,
+                        entrypoint: document.getElementById('entrypoint').value || null,
+                        max_attempts: parseInt(document.getElementById('max-attempts').value),
+                        max_seconds: parseInt(document.getElementById('max-seconds').value)
+                    })
+                });
+                const data = await res.json();
+                if (data.error) { alert('Errore: ' + data.error); return; }
+                currentRunId = data.run_id;
+                document.getElementById('run-panel').classList.remove('hidden');
+                document.getElementById('run-title').textContent = `${isScaffold ? '🏗️ Scaffold' : 'Run'}: ${currentRunId}`;
+                document.getElementById('run-badge').className = 'run-badge run-running';
+                document.getElementById('run-badge').textContent = '⏳ In esecuzione';
+                document.getElementById('log-console').innerHTML = `<div class="log-line log-info">Avvio ${isScaffold ? 'scaffolding' : 'run'}...</div>`;
+                document.getElementById('btn-run').disabled = true;
+                document.getElementById('btn-stop').disabled = false;
+                connectLogStream(currentRunId);
+            } catch (e) { alert('Errore avvio run: ' + e.message); }
+        }
+
+        async function stopRun() {
+            if (!currentRunId) return;
+            try {
+                const res = await fetch('/api/stop', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ run_id: currentRunId }) });
+                const data = await res.json();
+                if (data.status) addLogLine("🛑 Stop richiesto", 'warning');
+                else if (data.error) { addLogLine(`⚠️ ${data.error}`, 'warning'); resetRunUI(); }
+            } catch (e) { console.error('Stop error:', e); }
+        }
+
+        function connectLogStream(runId) {
+            if (eventSource) { eventSource.close(); eventSource = null; }
+            document.getElementById('log-console').innerHTML = '';
+            let waitAttempts = 0;
+            function tryConnect() {
+                if (waitAttempts++ >= 30) { addLogLine('❌ Timeout', 'error'); resetRunUI(); return; }
+                eventSource = new EventSource(`/stream/${runId}`);
+                eventSource.onmessage = (event) => {
+                    try {
+                        const data = JSON.parse(event.data);
+                        if (data.type === 'log') appendLogLine(data.line);
+                        else if (data.type === 'wait') addLogLine(data.msg, 'info');
+                        else if (data.type === 'error') { addLogLine(data.msg, 'error'); eventSource.close(); resetRunUI(); }
+                    } catch (e) { appendLogLine(event.data); }
+                };
+                eventSource.onerror = () => { if (eventSource.readyState === EventSource.CLOSED) checkRunFinished(runId); };
+            }
+            setTimeout(tryConnect, 500);
+        }
+
+        function appendLogLine(line) {
+            const consoleEl = document.getElementById('log-console');
+            const div = document.createElement('div');
+            div.className = 'log-line';
+            const timeMatch = line.match(/^\[(\d{2}:\d{2}:\d{2})\]\s*/);
+            if (timeMatch) {
+                div.innerHTML = `<span class="log-time">${timeMatch[1]}</span>${escapeHtml(line.slice(timeMatch[0].length))}`;
+            } else { div.textContent = line; }
+            const lower = line.toLowerCase();
+            if (lower.includes('self-heal')) div.classList.add('log-heal');
+            else if (lower.includes('[success]') || lower.includes('✅')) div.classList.add('log-success');
+            else if (lower.includes('[error]') || lower.includes('❌')) div.classList.add('log-error');
+            else if (lower.includes('[warning]') || lower.includes('⚠️')) div.classList.add('log-warning');
+            else if (lower.includes('[info]') || lower.includes('🚀')) div.classList.add('log-info');
+            consoleEl.appendChild(div);
+            consoleEl.scrollTop = consoleEl.scrollHeight;
+        }
+
+        function addLogLine(text, level = 'info') {
+            const consoleEl = document.getElementById('log-console');
+            const div = document.createElement('div');
+            div.className = `log-line log-${level}`;
+            div.textContent = text;
+            consoleEl.appendChild(div);
+            consoleEl.scrollTop = consoleEl.scrollHeight;
+        }
+
+        async function checkRunFinished(runId) {
+            try {
+                const res = await fetch(`/api/run/${runId}/log`);
+                const data = await res.json();
+                if (data.content) {
+                    const content = data.content.toLowerCase();
+                    if (content.includes('status: success')) {
+                        document.getElementById('run-badge').className = 'run-badge run-success';
+                        document.getElementById('run-badge').textContent = '✅ Completato';
+                        addLogLine('✅ Run completato!', 'success');
+                    } else if (content.includes('status: failed') || content.includes('status: timeout')) {
+                        document.getElementById('run-badge').className = 'run-badge run-failed';
+                        document.getElementById('run-badge').textContent = '❌ Fallito';
+                        addLogLine('❌ Run terminato', 'error');
+                    }
+                }
+            } catch (e) { console.error('Check status error:', e); }
+            resetRunUI(); refreshRecentRuns();
+        }
+
+        function resetRunUI() {
+            document.getElementById('btn-run').disabled = false;
+            document.getElementById('btn-stop').disabled = true;
+            currentRunId = null;
+            if (eventSource) { eventSource.close(); eventSource = null; }
+        }
+
+        async function refreshRecentRuns() {
+            try {
+                const res = await fetch('/api/runs');
+                const runs = await res.json();
+                const container = document.getElementById('recent-runs-container');
+                if (!runs || runs.length === 0) {
+                    container.innerHTML = '<p style="color: #666; text-align: center; padding: 20px;">Nessun run</p>';
+                    return;
+                }
+                let html = '';
+                runs.forEach(run => {
+                    const badgeClass = run.status === 'success' ? 'run-success' : run.status === 'failed' ? 'run-failed' : run.status === 'timeout' ? 'run-timeout' : run.status === 'stopped' ? 'run-stopped' : 'run-running';
+                    const icon = run.status === 'success' ? '✅' : run.status === 'failed' ? '❌' : run.status === 'timeout' ? '⏱️' : run.status === 'stopped' ? '🛑' : '⏳';
+                    html += `<div class="run-item"><div class="run-info"><span class="run-id">${escapeHtml(run.run_id)}</span><span class="run-badge ${badgeClass}">${icon} ${run.status}</span><span class="run-time">${run.mtime || ''}</span></div><div class="run-actions"><button onclick="viewLog('${escapeHtml(run.run_id)}')">👁 View</button><button onclick="downloadLog('${escapeHtml(run.run_id)}')">📥 Log</button></div></div>`;
+                });
+                container.innerHTML = html;
+            } catch (e) { console.error('Refresh error:', e); }
+        }
+
+        function viewLog(runId) { window.open(`/api/run/${runId}/log`, '_blank'); }
+        function downloadLog(runId) { window.open(`/api/run/${runId}/log?download=1`, '_blank'); }
+        function refreshStatus() { refreshRecentRuns(); location.reload(); }
+
+        async function pollActiveRun() {
+            try {
+                const res = await fetch('/api/runs/active');
+                const data = await res.json();
+                const activeIds = data.active_run_ids || [];
+
+                if (activeIds.length > 0) {
+                    const realRunId = activeIds[0];
+                    if (realRunId !== currentRunId) {
+                        currentRunId = realRunId;
+                        document.getElementById('run-panel').classList.remove('hidden');
+                        document.getElementById('run-title').textContent = `Run: ${currentRunId}`;
+                        document.getElementById('run-badge').className = 'run-badge run-running';
+                        document.getElementById('run-badge').textContent = '⏳ In esecuzione';
+                        document.getElementById('btn-run').disabled = true;
+                        document.getElementById('btn-stop').disabled = false;
+                        connectLogStream(currentRunId);
+                    }
+                } else if (currentRunId) {
+                    // Nessun run realmente attivo sul server (es. era un log vecchio senza
+                    // riga di stato finale) ma la UI pensava di averne uno: resetta.
+                    resetRunUI();
+                }
+            } catch (e) {}
+        }
+
+        // ===== HARDWARE STATUS: Rig primario / Locale backup =====
+        async function pollHW() {
+            try {
+                const [health, modelsInfo] = await Promise.all([
+                    fetch('/api/health').then(r => r.json()),
+                    fetch('/api/models/info').then(r => r.json())
+                ]);
+                const rigOk = health.remote_coder && health.remote_reasoning;
+                const rigPartial = health.remote_coder || health.remote_reasoning;
+                const rigBadge = document.getElementById('rig-badge');
+                if (rigBadge) {
+                    rigBadge.className = 'hw-badge ' + (rigOk ? 'ok' : (rigPartial ? 'partial' : 'off'));
+                    rigBadge.textContent = 'Rig: ' + (rigOk ? 'OK' : (rigPartial ? 'parziale' : 'offline'));
+                }
+                const localBadge = document.getElementById('local-badge');
+                if (localBadge) {
+                    localBadge.className = 'hw-badge ' + (modelsInfo.running ? 'ok' : 'partial');
+                    localBadge.textContent = 'Locale: ' + (modelsInfo.running ? 'backup attivo' : 'spento');
+                }
+            } catch (e) { log('HW', 'poll error', e); }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            refreshRecentRuns();
+            pollActiveRun();
+            pollHW();
+            setInterval(pollActiveRun, 5000);
+            setInterval(pollHW, 5000);
+        });
+    </script>
+</body>
+</html>

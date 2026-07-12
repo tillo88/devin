@@ -1,0 +1,5 @@
+Scaffold started: run_20260704_231233
+Task: una calcolatrice per operazioni base con gui semplice
+
+[FATAL] [Errno 2] No such file or directory: 'config/settings.json'
+status: failed

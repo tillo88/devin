@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}DEVIN AI IDE{% endblock %}</title>
+    {# FIX /history 500 (2026-07-10): url_for('static', filename=...) e' sintassi
+       FLASK. Con Starlette il parametro della route StaticFiles si chiama 'path',
+       quindi anche col mount registrato la lookup falliva con NoMatchFound
+       ("No route exists for name 'static' and params 'filename'").
+       Path letterali: zero dipendenza dal reverse-routing. #}
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    {% block head %}{% endblock %}
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">
+            <span class="logo">&#129504;</span>
+            <span class="brand-text">DEVIN AI IDE</span>
+            <span class="version">v19</span>
+        </div>
+        <div class="nav-links">
+            <a href="/" class="{% if request.path == '/' %}active{% endif %}">Dashboard</a>
+            <a href="/history" class="{% if request.path == '/history' %}active{% endif %}">History</a>
+        </div>
+        <div class="nav-actions">
+            <div class="rig-status" id="rigStatus">
+                <span class="indicator" id="rigIndicator"></span>
+                <span class="label" id="rigLabel">Checking...</span>
+            </div>
+            <button class="theme-toggle" id="themeToggle" title="Toggle dark mode">
+                <span class="theme-icon">&#127769;</span>
+            </button>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        {% block content %}{% endblock %}
+    </main>
+
+    <script src="/static/js/app.js"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>
