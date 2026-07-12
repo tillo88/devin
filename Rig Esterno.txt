@@ -1,0 +1,8 @@
+intel 10900x 
+msi x299 pro
+32gb ddr4 3200(possibilità di espansione in futuro)
+2x1080 - m2 to pciex4 x2
+2x1660SUPER - pciex8(biforcati da pciex16)
+1x1080TI  -  pciex16
+1x1660TI  -  pciex8
+1xRTXA2000-6GB  -  pciex8

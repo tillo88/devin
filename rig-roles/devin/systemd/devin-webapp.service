@@ -1,0 +1,23 @@
+[Unit]
+Description=DEVIN AI IDE - Dashboard (fast_app.py)
+After=network-online.target llama-server@devin.service
+Wants=network-online.target
+StartLimitIntervalSec=60
+StartLimitBurst=3
+# Non Requires=: se llama-server crasha/riavvia, la dashboard resta su e mostra
+# semplicemente "Rig offline" invece di cadere insieme (stesso comportamento
+# gia' gestito lato client.py con circuit breaker + fallback locale).
+
+[Service]
+Type=simple
+User=tillo
+WorkingDirectory=/opt/devin-ai-ide
+Environment="PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+ExecStart=/opt/venv-devin/bin/python3 /opt/devin-ai-ide/devin/ui/fast_app.py
+Restart=on-failure
+RestartSec=10
+StandardOutput=append:/var/log/devin-webapp.log
+StandardError=append:/var/log/devin-webapp.log
+
+[Install]
+WantedBy=multi-user.target

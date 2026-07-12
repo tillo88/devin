@@ -1,0 +1,15 @@
+[Unit]
+Description=DEVIN Telegram Bot (dedicato al ruolo DEVIN)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=tillo
+Environment=DEVIN_BOT_CONFIG=/etc/devin-bot/config.env
+ExecStart=/opt/venv-devin/bin/python3 /opt/devin-bot/devin-bot.py
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

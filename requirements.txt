@@ -1,0 +1,22 @@
+openai>=1.0.0
+requests
+flask
+tk
+numpy
+scikit-learn
+fastapi
+uvicorn
+python-multipart
+
+# Estrazione testo da documenti allegati in chat (devin/ai/document_extract.py), 2026-07-09
+pypdf
+python-docx
+openpyxl
+python-pptx
+
+# .env in devin/ui/ (TINYFISH_API_KEY ecc.), 2026-07-05
+python-dotenv
+
+# Web fetch con browser headless (devin/ai/web_search.py, fetch_engine=playwright), 2026-07-10
+# Dopo il pip serve anche: playwright install chromium
+playwright
