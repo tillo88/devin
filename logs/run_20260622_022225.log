@@ -1,0 +1,4 @@
+[2026-06-22T02:22:25.046301] 🚀 RUN STARTED — project: workspace/project4 — task: Crea una CLI calculator in Python con i comandi add, sub, mul, div, richiamabile come python3 calc.py add 3 4
+[2026-06-22T02:22:25.046722] 🧠 Context costruito (progetto vuoto, build da zero)
+[2026-06-22T02:22:25.048359] 🧠 Piano generato:
+None

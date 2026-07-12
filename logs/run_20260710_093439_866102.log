@@ -1,0 +1,7 @@
+Patch da conversazione: run_20260710_093439_866102
+[INFO] LocalModelLauncher initialized
+[INFO] Orchestrator initialized
+[INFO] Orchestrator finished. Models still running.
+
+[FATAL] 'Orchestrator' object has no attribute 'run_from_conversation'
+status: failed

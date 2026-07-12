@@ -1,0 +1,16 @@
+# venv dedicato DEVIN (/opt/venv-devin) — dipendenze reali di devin/ui/fast_app.py
+# e del resto dello stack (Orchestrator, agents, context engine).
+#
+# NOTA: flask e tk (Tkinter) del requirements.txt originale del progetto DEVIN AI IDE
+# sono la vecchia UI legacy (devin/ui/app.py), superata da fast_app.py — omesse qui
+# perche' il rig e' un server Ubuntu headless (niente X11/GUI comunque disponibile).
+
+openai>=1.0.0
+requests
+numpy
+scikit-learn
+fastapi
+uvicorn[standard]
+python-multipart
+python-dotenv
+tinyfish

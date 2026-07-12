@@ -1,0 +1,23 @@
+[Unit]
+Description=AI Rig - llama-server (%i)
+After=network-online.target nvidia-persistenced.service ai-rig-stage-llama.target
+Wants=network-online.target nvidia-persistenced.service
+StartLimitIntervalSec=60
+StartLimitBurst=3
+
+[Service]
+Type=simple
+User=tillo
+EnvironmentFile=/etc/ai-rig/%i.env
+Environment="CUDA_DEVICE_ORDER=PCI_BUS_ID"
+Environment="PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+ExecStartPre=/bin/bash -c 'until nvidia-smi > /dev/null 2>&1; do sleep 1; done'
+ExecStart=/usr/local/bin/start-llama-%i.sh
+Restart=always
+RestartSec=10
+TimeoutStartSec=300
+StandardOutput=append:/var/log/llama-server-%i.log
+StandardError=append:/var/log/llama-server-%i.log
+
+[Install]
+WantedBy=multi-user.target

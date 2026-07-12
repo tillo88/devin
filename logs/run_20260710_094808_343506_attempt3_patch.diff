@@ -1,0 +1,140 @@
+diff --git a/calculator.py b/calculator.py
+--- a/calculator.py
++++ b/calculator.py
+@@ -1,4 +1,4 @@
+ import tkinter as tk
+-from calculator_logic import Calculator
++from calculator_units import CalculatorWithUnits
+ 
+ class CalculatorGUI:
+@@ -10,7 +10,7 @@
+         self.root.title('Calculator')
+         self.root.geometry('200x300')
+ 
+-        self.calculator = Calculator()
++        self.calculator = CalculatorWithUnits()
+ 
+         self.display = tk.Label(root, text='0', font=('Arial', 40), anchor='e')
+         self.display.grid(row=0, column=0, columnspan=4, sticky='e')
+diff --git a/calculator_units.py b/calculator_units.py
+new file mode 100644
+--- /dev/null
++++ b/calculator_units.py
+@@ -0,0 +1,120 @@
++import pint
++from calculator_logic import Calculator
++
++ureg = pint.UnitRegistry()
++
++class CalculatorWithUnits:
++    def __init__(self):
++        self.calculator = Calculator()
++        self.current_quantity = None
++        self.display_text = '0'
++        self.operation = None
++        self.memory = None
++
++    def add_digit(self, digit: int):
++        if self.display_text == 'Error':
++        self.display_text = '0'
++        if self.display_text == '0':
++        self.display_text = str(digit)
++        else:
++        self.display_text += str(digit)
++
++    def add_decimal(self):
++        if '.' not in self.display_text:
++        self.display_text += '.'
++
++    def set_operation(self, op: str):
++        if self.display_text != '0':
++        self.operation = op
++        self.memory = float(self.display_text)
++        self.display_text = '0'
++
++    def calculate(self):
++        if self.operation is not None:
++        current = float(self.display_text)
++        if self.operation == '+':
++            result = self.memory + current
++        elif self.operation == '-':
++            result = self.memory - current
++        elif self.operation == '*':
++            result = self.memory * current
++        elif self.operation == '/':
++            if current != 0:
++                result = self.memory / current
++            else:
++                result = 'Error'
++        self.current_value = result
++        self.display_text = str(result)
++        self.operation = None
++        self.memory = None
++        return result
++        return None
++
++    def clear(self):
++        self.calculator.clear()
++        self.current_quantity = None
++        self.display_text = '0'
++        self.operation = None
++        self.memory = None
++
++    def clear_entry(self):
++        self.calculator.clear_entry()
++        self.display_text = '0'
++
++    def parse_quantity(self, text):
++        try:
++            q = ureg.Quantity(text)
++            self.current_quantity = q
++            return q.magnitude
++        except Exception:
++            return None
++
++    def convert_to_base(self, quantity):
++        try:
++            return quantity.to_base_units().magnitude
++        except Exception:
++            return None
++
++    def validate_dimension(self, op, left, right):
++        if op in ('+', '-'):
++            return left.dimensionality == right.dimensionality
++        elif op == '*':
++            return True
++        elif op == '/':
++            return True
++        return True
++
++    def get_display(self):
++        if self.current_quantity is not None:
++            return str(self.current_quantity)
++        return self.display_text
++
++    def set_display(self, text):
++        self.display_text = text
++
++    def on_button_click(self, text):
++        if text.isdigit():
++            self.add_digit(int(text))
++        elif text == '.':
++            self.add_decimal()
++        elif text in '+-*/':
++            self.set_operation(text)
++        elif text == '=':
++            self.calculate()
++        elif text == 'C':
++            self.clear()
++        elif text == 'CE':
++            self.clear_entry()
++        self.display_text = self.get_display()
++
++    def __repr__(self):
++        return f"CalculatorWithUnits(display='{self.display_text}')"
+diff --git a/requirements.txt b/requirements.txt
+new file mode 100644
+--- /dev/null
++++ b/requirements.txt
+@@ -0,0 +1 @@
++pint

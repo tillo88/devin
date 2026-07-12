@@ -1,0 +1,280 @@
+### FILE: calculator_logic.py
+import pint
+
+class Calculator:
+    def __init__(self):
+        self.current_value = 0
+        self.display_text = '0'
+        self.operation = None
+        self.memory = None
+        self.current_unit = None
+        self.target_unit = None
+
+        self.ureg = pint.UnitRegistry()
+
+    def add_digit(self, digit: int):
+        if self.display_text == 'Error':
+            self.display_text = '0'
+        if self.display_text == '0':
+            self.display_text = str(digit)
+        else:
+            self.display_text += str(digit)
+
+    def add_decimal(self):
+        if '.' not in self.display_text:
+            self.display_text += '.'
+
+    def set_operation(self, op: str):
+        if self.display_text != '0':
+            self.operation = op
+            self.memory = float(self.display_text)
+            self.display_text = '0'
+
+    def calculate(self):
+        if self.operation is not None:
+            current = float(self.display_text)
+            if self.operation == '+':
+                result = self.memory + current
+            elif self.operation == '-':
+                result = self.memory - current
+            elif self.operation == '*':
+                result = self.memory * current
+            elif self.operation == '/':
+                if current != 0:
+                    result = self.memory / current
+                else:
+                    result = 'Error'
+            self.current_value = result
+            self.display_text = str(result)
+            self.operation = None
+            self.memory = None
+            return result
+        return None
+
+    def clear(self):
+        self.current_value = 0
+        self.display_text = '0'
+        self.operation = None
+        self.memory = None
+        self.current_unit = None
+        self.target_unit = None
+
+    def clear_entry(self):
+        self.display_text = '0'
+
+    def add_unit(self, unit_str: str):
+        """Attach a unit to the current value."""
+        try:
+            self.current_unit = self.ureg(unit_str)
+            self.display_text = f"{self.display_text} {unit_str}"
+        except pint.DimensionalityError:
+            self.display_text = 'Error'
+
+    def convert(self, value: float, from_unit: str, to_unit: str) -> float:
+        """Convert a value from one unit to another."""
+        try:
+            quantity = value * self.ureg(from_unit)
+            result = quantity.to(self.ureg(to_unit))
+            return float(result.magnitude)
+        except pint.DimensionalityError:
+            return 'Error'
+
+    def factorize(self, value: float, from_unit: str, to_unit: str) -> float:
+        """Perform complex unit factorization (e.g., temperature, compound units)."""
+        try:
+            quantity = value * self.ureg(from_unit)
+            result = quantity.to(self.ureg(to_unit))
+            return float(result.magnitude)
+        except pint.DimensionalityError:
+            return 'Error'
+
+    def check_dimensional(self, op: str, left: float, right: float) -> bool:
+        """Check if two values with units can be combined with the given operation."""
+        if self.current_unit is None:
+            return True
+        try:
+            left_q = left * self.ureg(self.current_unit)
+            right_q = right * self.ureg(self.current_unit)
+            if op in ('+', '-'):
+                left_q + right_q
+            elif op == '*':
+                left_q * right_q
+            elif op == '/':
+                left_q / right_q
+            return True
+        except pint.DimensionalityError:
+            return False
+
+    def get_unit_list(self) -> list:
+        """Return a list of common units for display in the unit selector."""
+        units = [
+            'm', 'km', 'cm', 'mm', 'in', 'ft', 'mi',
+            'kg', 'g', 'mg', 'lb', 'oz',
+            's', 'min', 'h', 'day',
+            'C', 'F', 'K',
+            'W', 'kW', 'MW',
+            'V', 'A', 'Ω',
+            'Pa', 'kPa', 'MPa', 'atm',
+            'J', 'kJ', 'cal',
+            'Hz', 'kHz', 'MHz',
+            'rad', 'deg',
+            'mol',
+            'L', 'mL', 'gal',
+            'm/s', 'km/h', 'mph',
+            'N', 'kN',
+            'm²', 'km²', 'ft²',
+            'm³', 'L', 'gal',
+        ]
+        return units
+
+### FILE: calculator.py
+import tkinter as tk
+from tkinter import ttk
+from calculator_logic import Calculator
+
+class CalculatorGUI:
+    def __init__(self, root):
+        self.root = root
+        self.root.title('Calculator')
+        self.root.geometry('320x500')
+
+        self.calculator = Calculator()
+
+        # Display
+        self.display = tk.Label(root, text='0', font=('Arial', 40), anchor='e')
+        self.display.grid(row=0, column=0, columnspan=4, sticky='e', padx=5, pady=5)
+
+        # Unit display
+        self.unit_label = tk.Label(root, text='', font=('Arial', 12), anchor='e')
+        self.unit_label.grid(row=1, column=0, columnspan=4, sticky='e', padx=5, pady=2)
+
+        # Buttons
+        buttons = [
+            ('7', 2, 0), ('8', 2, 1), ('9', 2, 2), ('/', 2, 3),
+            ('4', 3, 0), ('5', 3, 1), ('6', 3, 2), ('*', 3, 3),
+            ('1', 4, 0), ('2', 4, 1), ('3', 4, 2), ('+', 4, 3),
+            ('0', 5, 0), ('.', 5, 1), ('-', 5, 2), ('=', 5, 3),
+            ('C', 6, 0), ('CE', 6, 1), ('⌫', 6, 2), ('÷', 6, 3),
+        ]
+
+        for (text, row, col) in buttons:
+            button = tk.Button(root, text=text, font=('Arial', 16), command=lambda t=text: self.on_button_click(t))
+            button.grid(row=row, column=col, sticky='e', padx=3, pady=3)
+            if text == '=':
+                button.config(bg='green')
+            elif text in '+-*/':
+                button.config(bg='yellow')
+            elif text in 'CCE':
+                button.config(bg='red')
+
+        # Unit selector frame
+        unit_frame = tk.Frame(root, padx=5, pady=5)
+        unit_frame.grid(row=7, column=0, columnspan=4, sticky='ew')
+
+        tk.Label(unit_frame, text='From Unit:', font=('Arial', 10)).pack(side='left')
+        self.from_unit_var = tk.StringVar(value='m')
+        self.from_unit_combo = ttk.Combobox(unit_frame, textvariable=self.from_unit_var, state='readonly', width=12)
+        self.from_unit_combo.pack(side='left', padx=5)
+        self.from_unit_combo.bind('<<ComboboxSelected>>', self.on_unit_select)
+
+        tk.Label(unit_frame, text='To Unit:', font=('Arial', 10)).pack(side='left')
+        self.to_unit_var = tk.StringVar(value='km')
+        self.to_unit_combo = ttk.Combobox(unit_frame, textvariable=self.to_unit_var, state='readonly', width=12)
+        self.to_unit_combo.pack(side='left', padx=5)
+        self.to_unit_combo.bind('<<ComboboxSelected>>', self.on_unit_select)
+
+        self.unit_list = self.calculator.get_unit_list()
+        self.from_unit_combo['values'] = self.unit_list
+        self.to_unit_combo['values'] = self.unit_list
+
+        # Convert button
+        convert_btn = tk.Button(root, text='Convert', font=('Arial', 12), command=self.do_convert, bg='blue', fg='white')
+        convert_btn.grid(row=8, column=0, columnspan=4, sticky='ew', padx=5, pady=5)
+
+        # Factorize button
+        factorize_btn = tk.Button(root, text='Factorize', font=('Arial', 10), command=self.do_factorize, bg='purple', fg='white')
+        factorize_btn.grid(row=9, column=0, columnspan=4, sticky='ew', padx=5, pady=5)
+
+        # Dimensional check button
+        check_btn = tk.Button(root, text='Check Dimensions', font=('Arial', 10), command=self.check_dimensions, bg='orange')
+        check_btn.grid(row=10, column=0, columnspan=4, sticky='ew', padx=5, pady=5)
+
+        # Result label
+        self.result_label = tk.Label(root, text='', font=('Arial', 10), anchor='w')
+        self.result_label.grid(row=11, column=0, columnspan=4, sticky='w', padx=5, pady=5)
+
+        # Configure grid weight
+        root.columnconfigure(0, weight=1)
+
+    def on_button_click(self, text):
+        if text.isdigit():
+            self.calculator.add_digit(int(text))
+        elif text == '.':
+            self.calculator.add_decimal()
+        elif text in '+-*/':
+            self.calculator.set_operation(text)
+        elif text == '=':
+            self.calculator.calculate()
+        elif text == 'C':
+            self.calculator.clear()
+        elif text == 'CE':
+            self.calculator.clear_entry()
+        elif text == '⌫':
+            if len(self.calculator.display_text) > 1:
+                self.calculator.display_text = self.calculator.display_text[:-1]
+            else:
+                self.calculator.display_text = '0'
+        self.display.config(text=self.calculator.display_text)
+
+    def on_unit_select(self, event=None):
+        """Handle unit selection changes."""
+        from_unit = self.from_unit_var.get()
+        to_unit = self.to_unit_var.get()
+        if from_unit != to_unit:
+            try:
+                value = float(self.calculator.display_text)
+                result = self.calculator.convert(value, from_unit, to_unit)
+                self.display.config(text=str(result))
+                self.result_label.config(text=f'{value} {from_unit} = {result} {to_unit}')
+            except (ValueError, TypeError):
+                self.result_label.config(text='')
+
+    def do_convert(self):
+        """Perform a manual unit conversion."""
+        try:
+            value = float(self.calculator.display_text)
+            from_unit = self.from_unit_var.get()
+            to_unit = self.to_unit_var.get()
+            result = self.calculator.convert(value, from_unit, to_unit)
+            self.display.config(text=str(result))
+            self.result_label.config(text=f'{value} {from_unit} → {result} {to_unit}')
+        except (ValueError, TypeError):
+            self.result_label.config(text='Invalid value')
+
+    def do_factorize(self):
+        """Perform complex unit factorization."""
+        try:
+            value = float(self.calculator.display_text)
+            from_unit = self.from_unit_var.get()
+            to_unit = self.to_unit_var.get()
+            result = self.calculator.factorize(value, from_unit, to_unit)
+            self.display.config(text=str(result))
+            self.result_label.config(text=f'{value} {from_unit} → {result} {to_unit}')
+        except (ValueError, TypeError):
+            self.result_label.config(text='Invalid value')
+
+    def check_dimensions(self):
+        """Check if current operation is dimensionally valid."""
+        try:
+            value = float(self.calculator.display_text)
+            from_unit = self.from_unit_var.get()
+            to_unit = self.to_unit_var.get()
+            result = self.calculator.convert(value, from_unit, to_unit)
+            self.result_label.config(text=f'Dimensionally valid: {value} {from_unit} = {result} {to_unit}')
+        except (ValueError, TypeError):
+            self.result_label.config(text='Invalid value')
+
+if __name__ == '__main__':
+    root = tk.Tk()
+    app = CalculatorGUI(root)
+    root.mainloop()

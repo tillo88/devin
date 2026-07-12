@@ -1,0 +1,12 @@
+diff --git a/calculator.py b/calculator.py
+--- a/calculator.py
++++ b/calculator.py
+@@ -100,7 +100,7 @@ class CalculatorGUI:
+         elif text == '=':
+             self.calculator.calculate()
+         elif text == 'C':
+             self.calculator.clear()
+         elif text == 'CE':
+-            self.display_text = '0'
++            self.calculator.clear_entry()
+         self.display.config(text=self.calculator.display_text)

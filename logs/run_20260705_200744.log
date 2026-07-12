@@ -1,0 +1,25 @@
+Run started: run_20260705_200744
+Task: correggi il bottone CE che non pulisce il display, il tasto = che non diventa verde, e gestisci la divisione per zero
+[INFO] DEVIN starting...
+[INFO] Checking model availability...
+[WARNING] ⚠️ Rig esterno (primario) non disponibile. Uso modelli locali di backup (16GB VRAM) — sconsigliato per scaffolding/debug pesante, ok per chat.
+[SUCCESS] Models ready (source: local)
+[INFO] Building context...
+[INFO] Semantic context: 0 chars
+[INFO] Context: 3582 chars
+[INFO] Planner analyzing...
+[INFO] Plan: 1 steps
+[INFO] 
+Attempt 1/3
+[INFO] Coder generating patch...
+[INFO] Patch: 1378 lines
+[INFO] Debug: patch grezza salvata in run_20260705_200744_attempt1_patch.diff
+[INFO] Patcher applying...
+[INFO] Patch applied to sandbox
+[INFO] Runner executing...
+[SUCCESS] Execution successful!
+[INFO] Sandbox synced to project
+[INFO] Changes committed
+
+status: success
+[INFO] Orchestrator finished. Models still running.

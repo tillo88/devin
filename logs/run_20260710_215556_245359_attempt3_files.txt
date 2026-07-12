@@ -1,0 +1,224 @@
+### FILE: calculator_logic.py
+import pint
+
+class Calculator:
+    def __init__(self):
+        self.current_value = 0
+        self.display_text = '0'
+        self.operation = None
+        self.memory = None
+        self.current_unit = None
+        self.unit_registry = pint.UnitRegistry()
+        self.converter = self.unit_registry
+
+    def add_digit(self, digit: int):
+        if self.display_text == 'Error':
+            self.display_text = '0'
+        if self.display_text == '0':
+            self.display_text = str(digit)
+        else:
+            self.display_text += str(digit)
+
+    def add_decimal(self):
+        if '.' not in self.display_text:
+            self.display_text += '.'
+
+    def set_operation(self, op: str):
+        if self.display_text != '0':
+            self.operation = op
+            self.memory = float(self.display_text)
+            self.display_text = '0'
+
+    def calculate(self):
+        if self.operation is not None:
+            current = float(self.display_text)
+            if self.operation == '+':
+                result = self.memory + current
+            elif self.operation == '-':
+                result = self.memory - current
+            elif self.operation == '*':
+                result = self.memory * current
+            elif self.operation == '/':
+                if current != 0:
+                    result = self.memory / current
+                else:
+                    result = 'Error'
+            self.current_value = result
+            self.display_text = str(result)
+            self.operation = None
+            self.memory = None
+            return result
+        return None
+
+    def clear(self):
+        self.current_value = 0
+        self.display_text = '0'
+        self.operation = None
+        self.memory = None
+        self.current_unit = None
+
+    def clear_entry(self):
+        self.display_text = '0'
+        self.current_unit = None
+
+    def set_unit(self, unit_str: str):
+        """Set the current unit for the displayed value."""
+        try:
+            self.current_unit = self.converter(unit_str)
+            self.display_text = f"{self.display_text} {unit_str}"
+        except Exception:
+            self.current_unit = None
+
+    def convert(self, value, from_unit, to_unit):
+        """Convert a value from one unit to another using Pint."""
+        try:
+            converted = self.converter.Quantity(value, from_unit).to(to_unit)
+            return float(converted.magnitude)
+        except Exception:
+            return 'Error'
+
+    def dimensional_check(self, value, unit):
+        """Check if a value is compatible with the given unit."""
+        try:
+            quantity = self.converter.Quantity(value, unit)
+            return quantity.dimensionality
+        except Exception:
+            return None
+
+    def add_unit(self, unit_str: str):
+        """Add a unit to the current display value."""
+        if self.display_text == 'Error':
+            self.display_text = '0'
+        if self.display_text == '0':
+            self.display_text = f"{unit_str}"
+        else:
+            self.display_text += f" {unit_str}"
+        self.current_unit = self.converter(unit_str)
+
+    def remove_unit(self):
+        """Remove the unit from the current display value."""
+        if self.current_unit is not None:
+            self.display_text = self.display_text.replace(f" {self.current_unit}", "")
+            self.current_unit = None
+
+    def get_value(self):
+        """Get the numeric value from the display, stripping unit if present."""
+        if self.current_unit is not None:
+            return float(self.display_text.split()[0])
+        return float(self.display_text)
+
+    def get_unit(self):
+        """Get the current unit string."""
+        return self.current_unit
+
+### FILE: calculator.py
+import tkinter as tk
+from calculator_logic import Calculator
+
+class CalculatorGUI:
+    def __init__(self, root):
+        self.root = root
+        self.root.title('Calculator')
+        self.root.geometry('250x450')
+
+        self.calculator = Calculator()
+
+        self.display = tk.Label(root, text='0', font=('Arial', 40), anchor='e')
+        self.display.grid(row=0, column=0, columnspan=4, sticky='e')
+
+        buttons = [
+            ('7', 1, 0), ('8', 1, 1), ('9', 1, 2), ('/', 1, 3),
+            ('4', 2, 0), ('5', 2, 1), ('6', 2, 2), ('*', 2, 3),
+            ('1', 3, 0), ('2', 3, 1), ('3', 3, 2), ('+', 3, 3),
+            ('0', 4, 0), ('.', 4, 1), ('-', 4, 2), ('=', 4, 3),
+            ('C', 5, 0), ('CE', 5, 1),
+            ('m', 5, 2), ('km', 5, 3),
+            ('kg', 6, 0), ('g', 6, 1),
+            ('°C', 6, 2), ('°F', 6, 3),
+            ('m/s', 7, 0), ('s', 7, 1),
+            ('convert', 7, 2), ('unit', 7, 3),
+        ]
+
+        for (text, row, col) in buttons:
+            button = tk.Button(root, text=text, font=('Arial', 14), command=lambda t=text: self.on_button_click(t))
+            button.grid(row=row, column=col, sticky='e')
+            if text == '=':
+                button.config(bg='green')
+            elif text in '+-*/':
+                button.config(bg='yellow')
+            elif text in 'CCE':
+                button.config(bg='red')
+            elif text in 'm km kg g °C °F m/s s':
+                button.config(bg='lightblue')
+            elif text in 'convert unit':
+                button.config(bg='lightgreen')
+
+    def on_button_click(self, text):
+        if text.isdigit():
+            self.calculator.add_digit(int(text))
+        elif text == '.':
+            self.calculator.add_decimal()
+        elif text in '+-*/':
+            self.calculator.set_operation(text)
+        elif text == '=':
+            self.calculator.calculate()
+        elif text == 'C':
+            self.calculator.clear()
+        elif text == 'CE':
+            self.calculator.clear_entry()
+        elif text == 'm':
+            self.calculator.add_unit('m')
+        elif text == 'km':
+            self.calculator.add_unit('km')
+        elif text == 'kg':
+            self.calculator.add_unit('kg')
+        elif text == 'g':
+            self.calculator.add_unit('g')
+        elif text == '°C':
+            self.calculator.add_unit('°C')
+        elif text == '°F':
+            self.calculator.add_unit('°F')
+        elif text == 'm/s':
+            self.calculator.add_unit('m/s')
+        elif text == 's':
+            self.calculator.add_unit('s')
+        elif text == 'convert':
+            self.on_convert()
+        elif text == 'unit':
+            self.on_toggle_unit()
+        self.display.config(text=self.calculator.display_text)
+
+    def on_convert(self):
+        """Convert the current value to a different unit."""
+        value = self.calculator.get_value()
+        from_unit = self.calculator.get_unit()
+        if from_unit is None:
+            self.display.config(text='No unit')
+            return
+        conversions = {
+            'm': 'km', 'km': 'm',
+            'kg': 'g', 'g': 'kg',
+            '°C': '°F', '°F': '°C',
+            'm/s': 'km/h', 'km/h': 'm/s',
+            's': 'min', 'min': 's',
+        }
+        to_unit = conversions.get(from_unit, from_unit)
+        result = self.calculator.convert(value, from_unit, to_unit)
+        if result != 'Error':
+            self.calculator.display_text = str(result)
+            self.calculator.current_unit = to_unit
+            self.display.config(text=self.calculator.display_text)
+        else:
+            self.display.config(text='Error')
+
+    def on_toggle_unit(self):
+        """Toggle the unit display on/off."""
+        if self.calculator.current_unit is not None:
+            self.calculator.remove_unit()
+        else:
+            self.calculator.add_unit('m')
+
+if __name__ == '__main__':
+    root = tk.Tk()
+    app = CalculatorGUI(root)
+    root.mainloop()
