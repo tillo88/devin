@@ -1,9 +1,0 @@
-diff --git a/calculator.py b/calculator.py
---- a/calculator.py
-+++ b/calculator.py
-@@ -1,2 +1,2 @@
- def on_button_click(self, text):
--    if text == 'CE':
--        self.display_text = '0'
-+    if text == 'CE':
-+        self.calculator.clear_entry()

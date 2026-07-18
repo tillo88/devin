@@ -1,7 +1,0 @@
-0.00.127.406 I cmn  common_param: common_params_print_info: verbosity = 3 (adjust with the `-lv N` CLI arg)
-0.00.605.513 I srv    load_model: loading model '/home/tillo/devin_ai_ide/devin/devin_models/Qwen3.5-14B-A3B-Claude-Opus-Reasoning-Distilled-4.6-MXFP4_MOE.gguf'
-0.15.355.695 I srv    load_model: initializing, n_slots = 4, n_ctx_slot = 8192, kv_unified = 'true'
-0.15.361.608 I srv  llama_server: model loaded
-0.15.361.630 I srv  llama_server: listening on http://0.0.0.0:8001
-8.12.474.236 I srv    operator(): operator(): cleaning up before exit...
-Received second interrupt, terminating immediately.
